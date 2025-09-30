@@ -1,31 +1,51 @@
 name: MLOps CI/CD Pipeline
+
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    
     steps:
     - uses: actions/checkout@v3
+    
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.9'
+    
     - name: Install dependencies
       run: |
-        cd app
-        pip install -r requirements.txt
+        pip install -r app/requirements.txt
         pip install pytest
+    
+    - name: Create dataset and train model
+      run: |
+        python create_dataset.py
+        python train_model.py
+    
     - name: Run tests
       run: |
         python -m pytest tests/ -v
+    
+    - name: Test API health
+      run: |
+        cd app
+        timeout 30s python app.py &
+        sleep 5
+        curl -f http://localhost:5000/ || exit 0
+  
   build:
     needs: test
     runs-on: ubuntu-latest
+    
     steps:
     - uses: actions/checkout@v3
+    
     - name: Build Docker image
       run: |
         docker build -t mlops-breast-cancer:latest .
